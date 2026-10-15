@@ -28,6 +28,26 @@ adapters:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
 
+# JWT (RS256). Sin JWT_PRIVATE_KEY se genera una clave efimera (solo desarrollo: los tokens no sobreviven a un reinicio)
+security:
+  jwt:
+    issuer: ${JWT_ISSUER:crediya-auth}
+    audience: ${JWT_AUDIENCE:crediya}
+    ttl-minutes: ${JWT_TTL_MINUTES:60}
+    private-key: ${JWT_PRIVATE_KEY:}
+  bcrypt:
+    strength: ${BCRYPT_STRENGTH:10}
+
+# Primer administrador: registrar usuarios exige ser ADMIN/ASESOR, asi que alguien debe ser el primero.
+# Solo se crea si BOOTSTRAP_ADMIN_PASSWORD esta definida y todavia no existe ningun ADMIN.
+bootstrap:
+  admin:
+    email: ${BOOTSTRAP_ADMIN_EMAIL:admin@crediya.local}
+    password: ${BOOTSTRAP_ADMIN_PASSWORD:}
+    documento: ${BOOTSTRAP_ADMIN_DOCUMENTO:0000000001}
+    nombres: ${BOOTSTRAP_ADMIN_NOMBRES:Administrador}
+    apellidos: ${BOOTSTRAP_ADMIN_APELLIDOS:CrediYa}
+
 management:
   endpoints:
     web:

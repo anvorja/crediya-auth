@@ -59,4 +59,23 @@ class RolTest {
         assertThat(duplicado.getCode()).isEqualTo(UsuarioDuplicadoException.CODE);
         assertThat(((UsuarioDuplicadoException) duplicado).getCampo()).isEqualTo("correo electronico");
     }
+
+    @Test
+    @DisplayName("solo ADMIN y ASESOR son personal interno")
+    void soloAdminYAsesor_sonPersonalInterno() {
+        assertThat(Rol.ADMIN.esPersonalInterno()).isTrue();
+        assertThat(Rol.ASESOR.esPersonalInterno()).isTrue();
+        assertThat(Rol.CLIENTE.esPersonalInterno()).isFalse();
+    }
+
+    @Test
+    @DisplayName("las excepciones de seguridad deben exponer un codigo estable y no revelar si el usuario existe")
+    void excepcionesDeSeguridad_debenExponerCodigo() {
+        var credenciales = new com.crediya.autenticacion.model.usuario.exceptions.CredencialesInvalidasException();
+        var acceso = new com.crediya.autenticacion.model.common.exceptions.AccesoDenegadoException();
+
+        assertThat(credenciales.getCode()).isEqualTo("CREDENCIALES_INVALIDAS");
+        assertThat(credenciales.getMessage()).isEqualTo("Correo o clave incorrectos");
+        assertThat(acceso.getCode()).isEqualTo("ACCESO_DENEGADO");
+    }
 }

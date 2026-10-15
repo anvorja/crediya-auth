@@ -182,6 +182,41 @@ class UsuarioRepositoryAdapterIntegrationTest {
     }
 
     @Test
+    @DisplayName("el hash de la clave debe persistirse y leerse, y un usuario sin hash debe leerse con hash nulo")
+    void hash_debePersistirseYLeerse() {
+        var conHash = usuario("conhash@example.com", "15151", Rol.CLIENTE).conPasswordHash("$2a$10$hash-de-prueba");
+        adapter.guardar(conHash).block();
+        adapter.guardar(usuario("sinhash@example.com", "16161", Rol.CLIENTE)).block();
+
+        StepVerifier.create(adapter.buscarPorEmail("conhash@example.com"))
+                .assertNext(encontrado -> assertThat(encontrado.passwordHash()).isEqualTo("$2a$10$hash-de-prueba"))
+                .verifyComplete();
+        StepVerifier.create(adapter.buscarPorEmail("sinhash@example.com"))
+                .assertNext(encontrado -> assertThat(encontrado.passwordHash()).isNull())
+                .verifyComplete();
+    }
+
+    @Test
+    @DisplayName("buscarPorEmail debe ignorar mayusculas y devolver vacio si no existe")
+    void buscarPorEmail_debeIgnorarMayusculas() {
+        adapter.guardar(usuario("maria@example.com", "17171", Rol.ASESOR)).block();
+
+        StepVerifier.create(adapter.buscarPorEmail("MARIA@Example.com"))
+                .assertNext(encontrado -> assertThat(encontrado.rol()).isEqualTo(Rol.ASESOR))
+                .verifyComplete();
+        StepVerifier.create(adapter.buscarPorEmail("nadie@example.com")).verifyComplete();
+    }
+
+    @Test
+    @DisplayName("existePorRol debe distinguir los roles presentes de los ausentes")
+    void existePorRol_debeDistinguir() {
+        adapter.guardar(usuario("admin@example.com", "18181", Rol.ADMIN)).block();
+
+        StepVerifier.create(adapter.existePorRol(Rol.ADMIN)).expectNext(true).verifyComplete();
+        StepVerifier.create(adapter.existePorRol(Rol.ASESOR)).expectNext(false).verifyComplete();
+    }
+
+    @Test
     @DisplayName("la transaccion debe confirmar los cambios cuando la operacion termina bien")
     void transaccion_debeConfirmarCuandoTerminaBien() {
         StepVerifier.create(transaccion.ejecutar(adapter.guardar(usuario("ok@example.com", "12121", Rol.CLIENTE))))

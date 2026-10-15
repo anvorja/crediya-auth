@@ -20,6 +20,13 @@ public enum Rol {
     }
 
     /**
+     * ADMIN y ASESOR forman el personal de CrediYa; CLIENTE es el solicitante.
+     */
+    public boolean esPersonalInterno() {
+        return this != CLIENTE;
+    }
+
+    /**
      * Convierte un texto en rol. Si no se informa, el usuario es CLIENTE.
      */
     public static Rol desde(String texto) {
