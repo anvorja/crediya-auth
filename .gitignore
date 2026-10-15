@@ -335,3 +335,6 @@ gradle-app.setting
 *.hprof
 build-cache
 build-cache/
+
+# Variables de entorno locales
+.env

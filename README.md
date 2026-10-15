@@ -1,47 +1,78 @@
-# Proyecto Base Implementando Clean Architecture
+# CrediYa - Microservicio de Autenticacion
 
-## Antes de Iniciar
+Registro de usuarios y autenticacion de la plataforma CrediYa. Arquitectura hexagonal / Clean Architecture
+con [Scaffold de Bancolombia](https://bancolombia.github.io/scaffold-clean-architecture/) 3.25.0, Spring Boot 3.5 y WebFlux
+(flujo reactivo de punta a punta: WebFlux -> casos de uso -> R2DBC).
 
-Empezaremos por explicar los diferentes componentes del proyectos y partiremos de los componentes externos, continuando con los componentes core de negocio (dominio) y por último el inicio y configuración de la aplicación.
+## Estado de las historias de usuario
 
-Lee el artículo [Clean Architecture — Aislando los detalles](https://medium.com/bancolombia-tech/clean-architecture-aislando-los-detalles-4f9530f35d7a)
+| HU | Descripcion | Rama | Estado |
+|----|-------------|------|--------|
+| HU1 | Registrar usuarios (`POST /api/v1/usuarios`) | `feature/HU-01-registro-usuarios` | Hecha |
+| HU3 | Login y JWT (`POST /api/v1/login`) | `feature/HU-03-autenticacion` | Pendiente |
 
-# Arquitectura
+## Estructura
 
-![Clean Architecture](https://miro.medium.com/max/1400/1*ZdlHz8B0-qu9Y-QO3AXR_w.png)
+```
+domain/model      entidades, comandos, excepciones de dominio y puertos (gateways). Sin Spring ni slf4j
+domain/usecase    casos de uso (flujo reactivo). Solo depende de model
+infrastructure/
+  driven-adapters/r2dbc-postgresql   persistencia R2DBC + migraciones Flyway
+  entry-points/reactive-web          router funcional, handlers, DTO (records), MapStruct, OpenAPI, errores
+applications/app-service             ensamblado, configuracion y main
+```
 
-## Domain
+Reglas del enunciado que se cumplen: el dominio no tiene `spring-boot-dependencies` ni `slf4j-api`; los logs viven en
+infraestructura; los errores de dominio llevan un codigo y `GlobalErrorHandler` (extiende `AbstractErrorWebExceptionHandler`)
+los traduce a HTTP; la documentacion OpenAPI esta en una clase utilitaria (`UsuarioOpenApi`), no en anotaciones.
 
-Es el módulo más interno de la arquitectura, pertenece a la capa del dominio y encapsula la lógica y reglas del negocio mediante modelos y entidades del dominio.
+## Requisitos
 
-## Usecases
+- Java 21
+- Docker (para PostgreSQL local y para los tests de integracion con Testcontainers)
 
-Este módulo gradle perteneciente a la capa del dominio, implementa los casos de uso del sistema, define lógica de aplicación y reacciona a las invocaciones desde el módulo de entry points, orquestando los flujos hacia el módulo de entities.
+## Ejecutar localmente
 
-## Infrastructure
+```bash
+# 1. PostgreSQL
+docker run -d --name crediya-auth-db -e POSTGRES_DB=crediya_auth -e POSTGRES_USER=crediya \
+  -e POSTGRES_PASSWORD=cambia-esta-clave -p 5432:5432 postgres:16-alpine
 
-### Helpers
+# 2. Variables de entorno (ver .env.example) y arranque
+export DB_USERNAME=crediya DB_PASSWORD=cambia-esta-clave
+./gradlew bootRun
+```
 
-En el apartado de helpers tendremos utilidades generales para los Driven Adapters y Entry Points.
+Swagger UI: http://localhost:8080/swagger-ui.html - Health: http://localhost:8080/actuator/health
 
-Estas utilidades no están arraigadas a objetos concretos, se realiza el uso de generics para modelar comportamientos
-genéricos de los diferentes objetos de persistencia que puedan existir, este tipo de implementaciones se realizan
-basadas en el patrón de diseño [Unit of Work y Repository](https://medium.com/@krzychukosobudzki/repository-design-pattern-bc490b256006)
+## Registrar un usuario (HU1)
 
-Estas clases no puede existir solas y debe heredarse su compartimiento en los **Driven Adapters**
+```bash
+curl -i -X POST http://localhost:8080/api/v1/usuarios -H 'Content-Type: application/json' -d '{
+  "nombres": "Maria", "apellidos": "Gomez", "documento_identidad": "1020304050",
+  "fecha_nacimiento": "1995-03-20", "direccion": "Calle 10", "telefono": "+573001234567",
+  "correo_electronico": "maria@example.com", "salario_base": 4500000
+}'
+```
 
-### Driven Adapters
+| Codigo | Cuando |
+|--------|--------|
+| 201 | Usuario registrado |
+| 400 | Campos vacios, correo invalido o salario fuera de 0..15000000 |
+| 409 | Correo o documento ya registrados |
+| 500 | Error inesperado (mensaje generico, sin detalles internos) |
 
-Los driven adapter representan implementaciones externas a nuestro sistema, como lo son conexiones a servicios rest,
-soap, bases de datos, lectura de archivos planos, y en concreto cualquier origen y fuente de datos con la que debamos
-interactuar.
+## Pruebas y calidad
 
-### Entry Points
+```bash
+./gradlew check                 # tests + estructura + cobertura minima 90% en model y usecase
+./gradlew jacocoMergedReport    # reporte consolidado: build/reports/jacocoMergedReport/
+./gradlew jacocoMergedReport -PrunPitest   # ademas, mutation testing (lento, opt-in)
+```
 
-Los entry points representan los puntos de entrada de la aplicación o el inicio de los flujos de negocio.
+Notas de entorno: Testcontainers 1.21.x necesita `api.version=1.44` con Docker Engine 29+ (ya configurado en `main.gradle`;
+se puede cambiar con `-PdockerApiVersion=...`).
 
-## Application
+## Flujo de trabajo (gitflow)
 
-Este módulo es el más externo de la arquitectura, es el encargado de ensamblar los distintos módulos, resolver las dependencias y crear los beans de los casos de use (UseCases) de forma automática, inyectando en éstos instancias concretas de las dependencias declaradas. Además inicia la aplicación (es el único módulo del proyecto donde encontraremos la función “public static void main(String[] args)”.
-
-**Los beans de los casos de uso se disponibilizan automaticamente gracias a un '@ComponentScan' ubicado en esta capa.**
+`main` (estable) <- `develop` <- `feature/HU-XX-nombre` (una rama por HU, se integra a `develop` con `--no-ff`).
