@@ -5,10 +5,12 @@ import com.crediya.autenticacion.api.dto.response.ErrorResponse;
 import com.crediya.autenticacion.api.dto.response.UsuarioResponse;
 import org.springdoc.core.fn.builders.operation.Builder;
 import org.springframework.http.HttpStatus;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import org.springframework.http.MediaType;
 
 import static org.springdoc.core.fn.builders.apiresponse.Builder.responseBuilder;
 import static org.springdoc.core.fn.builders.content.Builder.contentBuilder;
+import static org.springdoc.core.fn.builders.parameter.Builder.parameterBuilder;
 import static org.springdoc.core.fn.builders.requestbody.Builder.requestBodyBuilder;
 import static org.springdoc.core.fn.builders.schema.Builder.schemaBuilder;
 
@@ -21,6 +23,8 @@ public final class UsuarioOpenApi {
     private static final String JSON = MediaType.APPLICATION_JSON_VALUE;
     private static final String CREATED = String.valueOf(HttpStatus.CREATED.value());
     private static final String BAD_REQUEST = String.valueOf(HttpStatus.BAD_REQUEST.value());
+    private static final String OK = String.valueOf(HttpStatus.OK.value());
+    private static final String NOT_FOUND = String.valueOf(HttpStatus.NOT_FOUND.value());
     private static final String CONFLICT = String.valueOf(HttpStatus.CONFLICT.value());
     private static final String SERVER_ERROR = String.valueOf(HttpStatus.INTERNAL_SERVER_ERROR.value());
 
@@ -45,6 +49,30 @@ public final class UsuarioOpenApi {
                         .content(contentBuilder().mediaType(JSON)
                                 .schema(schemaBuilder().implementation(ErrorResponse.class))))
                 .response(responseBuilder().responseCode(CONFLICT).description("Correo o documento ya registrado")
+                        .content(contentBuilder().mediaType(JSON)
+                                .schema(schemaBuilder().implementation(ErrorResponse.class))))
+                .response(responseBuilder().responseCode(SERVER_ERROR).description("Error interno")
+                        .content(contentBuilder().mediaType(JSON)
+                                .schema(schemaBuilder().implementation(ErrorResponse.class))));
+    }
+
+    public static Builder consultarPorDocumento(Builder builder) {
+        return builder
+                .operationId("consultarUsuarioPorDocumento")
+                .summary("Consultar un usuario por documento de identidad")
+                .description("HU2: lo usa el microservicio SOLICITUDES para validar que el cliente existe.")
+                .tag(TAG)
+                .parameter(parameterBuilder()
+                        .name("documento")
+                        .in(ParameterIn.PATH)
+                        .required(true)
+                        .description("Documento de identidad del usuario")
+                        .example("1020304050")
+                        .schema(schemaBuilder().implementation(String.class)))
+                .response(responseBuilder().responseCode(OK).description("Usuario encontrado")
+                        .content(contentBuilder().mediaType(JSON)
+                                .schema(schemaBuilder().implementation(UsuarioResponse.class))))
+                .response(responseBuilder().responseCode(NOT_FOUND).description("Usuario inexistente")
                         .content(contentBuilder().mediaType(JSON)
                                 .schema(schemaBuilder().implementation(ErrorResponse.class))))
                 .response(responseBuilder().responseCode(SERVER_ERROR).description("Error interno")

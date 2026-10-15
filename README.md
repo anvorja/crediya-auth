@@ -9,6 +9,7 @@ con [Scaffold de Bancolombia](https://bancolombia.github.io/scaffold-clean-archi
 | HU | Descripcion | Rama | Estado |
 |----|-------------|------|--------|
 | HU1 | Registrar usuarios (`POST /api/v1/usuarios`) | `feature/HU-01-registro-usuarios` | Hecha |
+| HU2 | Consulta de usuario por documento (`GET /api/v1/usuarios/{documento}`), usada por SOLICITUDES | `feature/HU-02-consulta-usuario` | Hecha |
 | HU3 | Login y JWT (`POST /api/v1/login`) | `feature/HU-03-autenticacion` | Pendiente |
 
 ## Estructura

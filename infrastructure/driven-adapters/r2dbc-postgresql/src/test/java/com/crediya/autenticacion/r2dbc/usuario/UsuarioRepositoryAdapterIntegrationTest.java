@@ -171,6 +171,17 @@ class UsuarioRepositoryAdapterIntegrationTest {
     }
 
     @Test
+    @DisplayName("buscarPorDocumentoIdentidad debe devolver el usuario completo o vacio si no existe")
+    void buscarPorDocumento_debeDevolverUsuarioOVacio() {
+        var guardado = adapter.guardar(usuario("maria@example.com", "14141", Rol.ASESOR)).block();
+
+        StepVerifier.create(adapter.buscarPorDocumentoIdentidad("14141"))
+                .assertNext(encontrado -> assertThat(encontrado).isEqualTo(guardado))
+                .verifyComplete();
+        StepVerifier.create(adapter.buscarPorDocumentoIdentidad("00000")).verifyComplete();
+    }
+
+    @Test
     @DisplayName("la transaccion debe confirmar los cambios cuando la operacion termina bien")
     void transaccion_debeConfirmarCuandoTerminaBien() {
         StepVerifier.create(transaccion.ejecutar(adapter.guardar(usuario("ok@example.com", "12121", Rol.CLIENTE))))

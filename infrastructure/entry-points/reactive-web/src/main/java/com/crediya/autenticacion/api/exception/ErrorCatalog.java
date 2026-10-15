@@ -1,6 +1,7 @@
 package com.crediya.autenticacion.api.exception;
 
 import com.crediya.autenticacion.model.usuario.exceptions.DatosUsuarioInvalidosException;
+import com.crediya.autenticacion.model.usuario.exceptions.UsuarioNoEncontradoException;
 import com.crediya.autenticacion.model.usuario.exceptions.UsuarioDuplicadoException;
 import org.springframework.http.HttpStatus;
 
@@ -18,7 +19,8 @@ public final class ErrorCatalog {
 
     private static final Map<String, HttpStatus> ESTADOS_DOMINIO = Map.of(
             DatosUsuarioInvalidosException.CODE, HttpStatus.BAD_REQUEST,
-            UsuarioDuplicadoException.CODE, HttpStatus.CONFLICT
+            UsuarioDuplicadoException.CODE, HttpStatus.CONFLICT,
+            UsuarioNoEncontradoException.CODE, HttpStatus.NOT_FOUND
     );
 
     private ErrorCatalog() {
