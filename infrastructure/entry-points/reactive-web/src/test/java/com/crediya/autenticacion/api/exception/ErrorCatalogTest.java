@@ -2,6 +2,7 @@ package com.crediya.autenticacion.api.exception;
 
 import com.crediya.autenticacion.model.usuario.exceptions.DatosUsuarioInvalidosException;
 import com.crediya.autenticacion.model.usuario.exceptions.UsuarioDuplicadoException;
+import com.crediya.autenticacion.model.usuario.exceptions.UsuarioNoEncontradoException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,7 @@ class ErrorCatalogTest {
     void debeMapearCodigosConocidos() {
         assertThat(ErrorCatalog.estadoDe(DatosUsuarioInvalidosException.CODE)).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(ErrorCatalog.estadoDe(UsuarioDuplicadoException.CODE)).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(ErrorCatalog.estadoDe(UsuarioNoEncontradoException.CODE)).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @Test

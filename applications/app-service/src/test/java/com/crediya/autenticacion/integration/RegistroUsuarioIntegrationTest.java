@@ -130,4 +130,20 @@ class RegistroUsuarioIntegrationTest {
                 .expectStatus().isOk()
                 .expectBody().jsonPath("$.status").isEqualTo("UP");
     }
+
+    @Test
+    @DisplayName("HU2: debe poder consultar por documento un usuario registrado y recibir 404 si no existe")
+    void consultaPorDocumento_debeEncontrarORechazar() {
+        registrar(cuerpo("1020304050", "maria@example.com", "4500000")).expectStatus().isCreated();
+
+        client.get().uri(RUTA + "/1020304050").exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.correo_electronico").isEqualTo("maria@example.com")
+                .jsonPath("$.salario_base").isEqualTo(4500000);
+
+        client.get().uri(RUTA + "/99999999").exchange()
+                .expectStatus().isNotFound()
+                .expectBody().jsonPath("$.codigo").isEqualTo("USUARIO_NO_ENCONTRADO");
+    }
 }

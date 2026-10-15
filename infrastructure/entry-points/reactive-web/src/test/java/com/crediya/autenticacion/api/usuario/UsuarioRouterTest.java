@@ -9,6 +9,8 @@ import com.crediya.autenticacion.model.usuario.Usuario;
 import com.crediya.autenticacion.model.usuario.commands.RegistrarUsuarioCommand;
 import com.crediya.autenticacion.model.usuario.exceptions.DatosUsuarioInvalidosException;
 import com.crediya.autenticacion.model.usuario.exceptions.UsuarioDuplicadoException;
+import com.crediya.autenticacion.model.usuario.exceptions.UsuarioNoEncontradoException;
+import com.crediya.autenticacion.usecase.consultarusuario.ConsultarUsuarioUseCase;
 import com.crediya.autenticacion.usecase.registrarusuario.RegistrarUsuarioUseCase;
 import jakarta.validation.Validation;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,11 +52,14 @@ class UsuarioRouterTest {
     @Mock
     private RegistrarUsuarioUseCase useCase;
 
+    @Mock
+    private ConsultarUsuarioUseCase consultarUseCase;
+
     private WebTestClient client;
 
     @BeforeEach
     void setUp() {
-        var handler = new UsuarioHandler(useCase, new UsuarioRestMapperImpl(),
+        var handler = new UsuarioHandler(useCase, consultarUseCase, new UsuarioRestMapperImpl(),
                 new RequestValidator(Validation.buildDefaultValidatorFactory().getValidator()));
         var errorHandler = new GlobalErrorHandler(new DefaultErrorAttributes(), new WebProperties(),
                 new StaticApplicationContext(), ServerCodecConfigurer.create());
@@ -200,5 +205,33 @@ class UsuarioRouterTest {
         client.get().uri("/api/v1/no-existe").exchange()
                 .expectStatus().isNotFound()
                 .expectBody().jsonPath("$.codigo").isEqualTo("PETICION_INVALIDA");
+    }
+
+    @Test
+    @DisplayName("GET por documento: cuando el usuario existe, debe responder 200 con sus datos")
+    void consultar_cuandoExiste_debeResponder200() {
+        var id = UUID.randomUUID();
+        when(consultarUseCase.porDocumentoIdentidad("1020304050")).thenReturn(Mono.just(new Usuario(id, "Maria", "Gomez",
+                "1020304050", null, null, null, "maria@example.com", new BigDecimal("4500000"), Rol.CLIENTE)));
+
+        client.get().uri(RUTA + "/1020304050").exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.id").isEqualTo(id.toString())
+                .jsonPath("$.correo_electronico").isEqualTo("maria@example.com")
+                .jsonPath("$.salario_base").isEqualTo(4500000)
+                .jsonPath("$.rol").isEqualTo("CLIENTE");
+    }
+
+    @Test
+    @DisplayName("GET por documento: cuando no existe, debe responder 404 con el codigo del dominio")
+    void consultar_cuandoNoExiste_debeResponder404() {
+        when(consultarUseCase.porDocumentoIdentidad("0000000")).thenReturn(Mono.error(new UsuarioNoEncontradoException()));
+
+        client.get().uri(RUTA + "/0000000").exchange()
+                .expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.codigo").isEqualTo("USUARIO_NO_ENCONTRADO")
+                .jsonPath("$.estado").isEqualTo(404);
     }
 }

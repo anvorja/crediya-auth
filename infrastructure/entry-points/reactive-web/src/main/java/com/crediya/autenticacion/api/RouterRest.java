@@ -20,6 +20,8 @@ public class RouterRest {
         return route()
                 .POST(ApiRoutes.USUARIOS, accept(MediaType.APPLICATION_JSON),
                         usuarioHandler::registrarUsuario, UsuarioOpenApi::registrarUsuario)
+                .GET(ApiRoutes.USUARIO_POR_DOCUMENTO, accept(MediaType.APPLICATION_JSON),
+                        usuarioHandler::consultarPorDocumento, UsuarioOpenApi::consultarPorDocumento)
                 .build();
     }
 }

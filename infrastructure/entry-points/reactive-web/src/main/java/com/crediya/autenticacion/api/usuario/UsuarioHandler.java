@@ -5,6 +5,7 @@ import com.crediya.autenticacion.api.dto.request.RegistrarUsuarioRequest;
 import com.crediya.autenticacion.api.mapper.UsuarioRestMapper;
 import com.crediya.autenticacion.api.validation.RequestValidationException;
 import com.crediya.autenticacion.api.validation.RequestValidator;
+import com.crediya.autenticacion.usecase.consultarusuario.ConsultarUsuarioUseCase;
 import com.crediya.autenticacion.usecase.registrarusuario.RegistrarUsuarioUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ import java.util.Map;
 public class UsuarioHandler {
 
     private final RegistrarUsuarioUseCase registrarUsuarioUseCase;
+    private final ConsultarUsuarioUseCase consultarUsuarioUseCase;
     private final UsuarioRestMapper mapper;
     private final RequestValidator validator;
 
@@ -42,5 +44,18 @@ public class UsuarioHandler {
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(response))
                 .doOnSuccess(respuesta -> log.info("Usuario registrado correctamente"));
+    }
+
+    /**
+     * GET /api/v1/usuarios/{documento} (HU2): usado por SOLICITUDES para validar al cliente.
+     */
+    public Mono<ServerResponse> consultarPorDocumento(ServerRequest request) {
+        return Mono.fromSupplier(() -> request.pathVariable("documento"))
+                .doOnNext(documento -> log.info("Consulta de usuario por documento de identidad"))
+                .flatMap(consultarUsuarioUseCase::porDocumentoIdentidad)
+                .map(mapper::toResponse)
+                .flatMap(response -> ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(response));
     }
 }

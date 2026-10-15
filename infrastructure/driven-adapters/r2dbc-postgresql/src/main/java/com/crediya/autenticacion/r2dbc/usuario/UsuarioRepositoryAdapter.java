@@ -44,6 +44,13 @@ public class UsuarioRepositoryAdapter implements UsuarioRepository {
                 UsuarioEntity.class);
     }
 
+    @Override
+    public Mono<Usuario> buscarPorDocumentoIdentidad(String documentoIdentidad) {
+        return template.selectOne(Query.query(Criteria.where("documento_identidad").is(documentoIdentidad)),
+                        UsuarioEntity.class)
+                .map(UsuarioPersistenceMapper::toDomain);
+    }
+
     private Throwable traducirIntegridad(DataIntegrityViolationException error) {
         String detalle = String.valueOf(error.getMessage());
         if (detalle.contains(CONSTRAINT_EMAIL)) {
