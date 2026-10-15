@@ -1,5 +1,6 @@
 package com.crediya.autenticacion.r2dbc.usuario;
 
+import com.crediya.autenticacion.model.usuario.Rol;
 import com.crediya.autenticacion.model.usuario.Usuario;
 import com.crediya.autenticacion.model.usuario.exceptions.UsuarioDuplicadoException;
 import com.crediya.autenticacion.model.usuario.gateways.UsuarioRepository;
@@ -49,6 +50,17 @@ public class UsuarioRepositoryAdapter implements UsuarioRepository {
         return template.selectOne(Query.query(Criteria.where("documento_identidad").is(documentoIdentidad)),
                         UsuarioEntity.class)
                 .map(UsuarioPersistenceMapper::toDomain);
+    }
+
+    @Override
+    public Mono<Usuario> buscarPorEmail(String email) {
+        return template.selectOne(Query.query(Criteria.where("email").is(email).ignoreCase(true)), UsuarioEntity.class)
+                .map(UsuarioPersistenceMapper::toDomain);
+    }
+
+    @Override
+    public Mono<Boolean> existePorRol(Rol rol) {
+        return template.exists(Query.query(Criteria.where("id_rol").is(RolCatalogo.idDe(rol))), UsuarioEntity.class);
     }
 
     private Throwable traducirIntegridad(DataIntegrityViolationException error) {

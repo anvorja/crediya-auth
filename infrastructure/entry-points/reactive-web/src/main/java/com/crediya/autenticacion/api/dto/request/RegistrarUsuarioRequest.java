@@ -8,6 +8,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -25,6 +26,16 @@ public record RegistrarUsuarioRequest(
         @NotNull(message = ValidationMessages.SALARIO_REQUERIDO)
         @DecimalMin(value = "0", message = ValidationMessages.SALARIO_MINIMO)
         @DecimalMax(value = "15000000", message = ValidationMessages.SALARIO_MAXIMO) BigDecimal salarioBase,
-        String rol
+        String rol,
+        @NotBlank(message = ValidationMessages.PASSWORD_REQUERIDA)
+        @Size(min = 8, max = 72, message = ValidationMessages.PASSWORD_LONGITUD) String password
 ) {
+
+    /**
+     * Nunca imprime la clave: este DTO puede terminar en un log por accidente.
+     */
+    @Override
+    public String toString() {
+        return "RegistrarUsuarioRequest[correoElectronico=" + correoElectronico + ", rol=" + rol + ", password=****]";
+    }
 }

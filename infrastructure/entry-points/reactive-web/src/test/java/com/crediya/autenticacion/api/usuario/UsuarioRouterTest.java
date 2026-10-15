@@ -1,16 +1,20 @@
 package com.crediya.autenticacion.api.usuario;
 
-import com.crediya.autenticacion.api.RouterRest;
-import com.crediya.autenticacion.api.exception.GlobalErrorHandler;
+import com.crediya.autenticacion.api.ApiTestSupport;
+import com.crediya.autenticacion.api.autenticacion.AutenticacionHandler;
+import com.crediya.autenticacion.api.mapper.AutenticacionRestMapperImpl;
 import com.crediya.autenticacion.api.mapper.UsuarioRestMapperImpl;
 import com.crediya.autenticacion.api.validation.RequestValidator;
+import com.crediya.autenticacion.model.common.exceptions.AccesoDenegadoException;
 import com.crediya.autenticacion.model.usuario.Rol;
 import com.crediya.autenticacion.model.usuario.Usuario;
 import com.crediya.autenticacion.model.usuario.commands.RegistrarUsuarioCommand;
 import com.crediya.autenticacion.model.usuario.exceptions.DatosUsuarioInvalidosException;
 import com.crediya.autenticacion.model.usuario.exceptions.UsuarioDuplicadoException;
 import com.crediya.autenticacion.model.usuario.exceptions.UsuarioNoEncontradoException;
+import com.crediya.autenticacion.usecase.clavespublicas.ObtenerClavesPublicasUseCase;
 import com.crediya.autenticacion.usecase.consultarusuario.ConsultarUsuarioUseCase;
+import com.crediya.autenticacion.usecase.login.LoginUseCase;
 import com.crediya.autenticacion.usecase.registrarusuario.RegistrarUsuarioUseCase;
 import jakarta.validation.Validation;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,13 +24,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.boot.autoconfigure.web.WebProperties;
-import org.springframework.boot.web.reactive.error.DefaultErrorAttributes;
-import org.springframework.context.support.StaticApplicationContext;
 import org.springframework.http.MediaType;
-import org.springframework.http.codec.ServerCodecConfigurer;
 import org.springframework.test.web.reactive.server.WebTestClient;
-import org.springframework.web.reactive.function.server.HandlerStrategies;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
@@ -47,7 +46,8 @@ class UsuarioRouterTest {
     private static final String CUERPO_VALIDO = """
             {"nombres":"Maria","apellidos":"Gomez","documento_identidad":"1020304050",
              "fecha_nacimiento":"1995-03-20","direccion":"Calle 10","telefono":"+573001234567",
-             "correo_electronico":"Maria@Example.com","salario_base":4500000,"rol":"ASESOR"}""";
+             "correo_electronico":"Maria@Example.com","salario_base":4500000,"rol":"ASESOR",
+             "password":"Clave-Segura-123"}""";
 
     @Mock
     private RegistrarUsuarioUseCase useCase;
@@ -55,28 +55,21 @@ class UsuarioRouterTest {
     @Mock
     private ConsultarUsuarioUseCase consultarUseCase;
 
+    @Mock
+    private LoginUseCase loginUseCase;
+
+    @Mock
+    private ObtenerClavesPublicasUseCase clavesUseCase;
+
     private WebTestClient client;
 
     @BeforeEach
     void setUp() {
         var handler = new UsuarioHandler(useCase, consultarUseCase, new UsuarioRestMapperImpl(),
                 new RequestValidator(Validation.buildDefaultValidatorFactory().getValidator()));
-        var errorHandler = new GlobalErrorHandler(new DefaultErrorAttributes(), new WebProperties(),
-                new StaticApplicationContext(), ServerCodecConfigurer.create());
-        client = WebTestClient.bindToRouterFunction(new RouterRest().routerFunction(handler))
-                .handlerStrategies(estrategiasConManejadorGlobal(errorHandler))
-                .build();
-    }
-
-    /**
-     * HandlerStrategies.builder() ya registra un manejador de ResponseStatusException que respondería antes
-     * que el nuestro; en la aplicacion real el manejador global se ejecuta primero (@Order(-2)).
-     */
-    private static HandlerStrategies estrategiasConManejadorGlobal(GlobalErrorHandler errorHandler) {
-        return HandlerStrategies.empty()
-                .codecs(configurer -> configurer.registerDefaults(true))
-                .exceptionHandler(errorHandler)
-                .build();
+        var autenticacion = new AutenticacionHandler(loginUseCase, clavesUseCase, new AutenticacionRestMapperImpl(),
+                new RequestValidator(Validation.buildDefaultValidatorFactory().getValidator()));
+        client = ApiTestSupport.cliente(handler, autenticacion);
     }
 
     private WebTestClient.ResponseSpec post(String cuerpo) {
@@ -100,20 +93,24 @@ class UsuarioRouterTest {
                 .jsonPath("$.documento_identidad").isEqualTo("1020304050")
                 .jsonPath("$.correo_electronico").isEqualTo("maria@example.com")
                 .jsonPath("$.salario_base").isEqualTo(4500000)
-                .jsonPath("$.rol").isEqualTo("ASESOR");
+                .jsonPath("$.rol").isEqualTo("ASESOR")
+                .jsonPath("$.password").doesNotExist()
+                .jsonPath("$.password_hash").doesNotExist();
 
         var comando = ArgumentCaptor.forClass(RegistrarUsuarioCommand.class);
         verify(useCase).ejecutar(comando.capture());
         assertThat(comando.getValue().email()).isEqualTo("Maria@Example.com");
         assertThat(comando.getValue().documentoIdentidad()).isEqualTo("1020304050");
         assertThat(comando.getValue().rol()).isEqualTo("ASESOR");
+        assertThat(comando.getValue().password()).isEqualTo("Clave-Segura-123");
     }
 
     @Test
     @DisplayName("cuando faltan campos obligatorios o el correo es invalido, debe responder 400 con el detalle por campo")
     void cuandoDatosInvalidos_debeResponder400ConDetalles() {
         post("""
-                {"apellidos":"Gomez","documento_identidad":"1020304050","correo_electronico":"no-es-correo","salario_base":-5}""")
+                {"apellidos":"Gomez","documento_identidad":"1020304050","correo_electronico":"no-es-correo","salario_base":-5,
+                 "password":"corta"}""")
                 .expectStatus().isBadRequest()
                 .expectBody()
                 .jsonPath("$.codigo").isEqualTo("VALIDACION_FALLIDA")
@@ -121,7 +118,8 @@ class UsuarioRouterTest {
                 .jsonPath("$.ruta").isEqualTo(RUTA)
                 .jsonPath("$.detalles.nombres").isNotEmpty()
                 .jsonPath("$.detalles.correo_electronico").isNotEmpty()
-                .jsonPath("$.detalles.salario_base").isNotEmpty();
+                .jsonPath("$.detalles.salario_base").isNotEmpty()
+                .jsonPath("$.detalles.password").isNotEmpty();
 
         verify(useCase, never()).ejecutar(any());
     }
@@ -233,5 +231,32 @@ class UsuarioRouterTest {
                 .expectBody()
                 .jsonPath("$.codigo").isEqualTo("USUARIO_NO_ENCONTRADO")
                 .jsonPath("$.estado").isEqualTo(404);
+    }
+
+    @Test
+    @DisplayName("cuando falta la clave, debe responder 400 indicando el campo password")
+    void cuandoFaltaPassword_debeResponder400() {
+        post(CUERPO_VALIDO.replace("\"password\":\"Clave-Segura-123\"", "\"x\":1"))
+                .expectStatus().isBadRequest()
+                .expectBody().jsonPath("$.detalles.password").isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("cuando el dominio deniega el acceso, debe responder 403 con el codigo del dominio")
+    void cuandoDominioDeniegaAcceso_debeResponder403() {
+        when(useCase.ejecutar(any())).thenReturn(Mono.error(new AccesoDenegadoException()));
+
+        post(CUERPO_VALIDO)
+                .expectStatus().isForbidden()
+                .expectBody().jsonPath("$.codigo").isEqualTo("ACCESO_DENEGADO");
+    }
+
+    @Test
+    @DisplayName("el DTO de registro no debe imprimir la clave en su toString")
+    void dto_noDebeImprimirLaClave() {
+        var dto = new com.crediya.autenticacion.api.dto.request.RegistrarUsuarioRequest("M", "G", "123456", null, null, null,
+                "m@g.co", BigDecimal.TEN, null, "Clave-Secreta-1");
+
+        assertThat(dto.toString()).doesNotContain("Clave-Secreta-1").contains("password=****");
     }
 }

@@ -19,6 +19,7 @@ public final class ComandoUsuarioBuilder {
     private String email = "  Maria.Gomez@Example.COM ";
     private BigDecimal salarioBase = new BigDecimal("4500000");
     private String rol;
+    private String password = "Clave-Segura-123";
 
     private ComandoUsuarioBuilder() {
     }
@@ -72,8 +73,13 @@ public final class ComandoUsuarioBuilder {
         return this;
     }
 
+    public ComandoUsuarioBuilder password(String valor) {
+        this.password = valor;
+        return this;
+    }
+
     public RegistrarUsuarioCommand build() {
         return new RegistrarUsuarioCommand(nombres, apellidos, documentoIdentidad, fechaNacimiento,
-                direccion, telefono, email, salarioBase, rol);
+                direccion, telefono, email, salarioBase, rol, password);
     }
 }

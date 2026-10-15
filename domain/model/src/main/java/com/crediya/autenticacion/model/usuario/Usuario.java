@@ -19,7 +19,8 @@ public record Usuario(
         String telefono,
         String email,
         BigDecimal salarioBase,
-        Rol rol
+        Rol rol,
+        String passwordHash
 ) {
 
     public static final BigDecimal SALARIO_MINIMO = BigDecimal.ZERO;
@@ -27,10 +28,21 @@ public record Usuario(
     public static final int NOMBRE_LONGITUD_MAXIMA = 100;
     public static final int EMAIL_LONGITUD_MAXIMA = 255;
     public static final int DIRECCION_LONGITUD_MAXIMA = 255;
+    public static final int PASSWORD_LONGITUD_MINIMA = 8;
+    // bcrypt solo considera los primeros 72 bytes: se rechaza mas largo en vez de truncar en silencio
+    public static final int PASSWORD_LONGITUD_MAXIMA = 72;
 
     private static final Pattern EMAIL = Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
     private static final Pattern DOCUMENTO = Pattern.compile("^[0-9]{5,20}$");
     private static final Pattern TELEFONO = Pattern.compile("^\\+?[0-9]{7,15}$");
+
+    /**
+     * Constructor sin credencial, para lecturas donde el hash no es necesario.
+     */
+    public Usuario(UUID id, String nombres, String apellidos, String documentoIdentidad, LocalDate fechaNacimiento,
+                   String direccion, String telefono, String email, BigDecimal salarioBase, Rol rol) {
+        this(id, nombres, apellidos, documentoIdentidad, fechaNacimiento, direccion, telefono, email, salarioBase, rol, null);
+    }
 
     /**
      * Crea un usuario nuevo (sin id, lo asigna la persistencia) aplicando las reglas de la HU1.
@@ -41,6 +53,7 @@ public record Usuario(
         String email = email(comando.email());
         String documento = documento(comando.documentoIdentidad());
         BigDecimal salario = salario(comando.salarioBase());
+        exigirPasswordValida(comando.password());
 
         return new Usuario(
                 null,
@@ -52,13 +65,37 @@ public record Usuario(
                 telefono(comando.telefono()),
                 email,
                 salario,
-                Rol.desde(comando.rol())
+                Rol.desde(comando.rol()),
+                null
         );
     }
 
     public Usuario conId(UUID nuevoId) {
         return new Usuario(nuevoId, nombres, apellidos, documentoIdentidad, fechaNacimiento,
-                direccion, telefono, email, salarioBase, rol);
+                direccion, telefono, email, salarioBase, rol, passwordHash);
+    }
+
+    public Usuario conPasswordHash(String nuevoHash) {
+        return new Usuario(id, nombres, apellidos, documentoIdentidad, fechaNacimiento,
+                direccion, telefono, email, salarioBase, rol, nuevoHash);
+    }
+
+    /**
+     * El hash no se imprime: evita que una credencial llegue a un log.
+     */
+    @Override
+    public String toString() {
+        return "Usuario[id=" + id + ", documentoIdentidad=" + documentoIdentidad + ", rol=" + rol + "]";
+    }
+
+    private static void exigirPasswordValida(String password) {
+        if (password == null || password.isBlank()) {
+            throw new DatosUsuarioInvalidosException("password", "es obligatorio");
+        }
+        if (password.length() < PASSWORD_LONGITUD_MINIMA || password.length() > PASSWORD_LONGITUD_MAXIMA) {
+            throw new DatosUsuarioInvalidosException("password", "debe tener entre " + PASSWORD_LONGITUD_MINIMA
+                    + " y " + PASSWORD_LONGITUD_MAXIMA + " caracteres");
+        }
     }
 
     private static String textoObligatorio(String campo, String valor, int maximo) {

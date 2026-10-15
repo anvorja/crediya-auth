@@ -1,5 +1,7 @@
 package com.crediya.autenticacion.api.exception;
 
+import com.crediya.autenticacion.model.common.exceptions.AccesoDenegadoException;
+import com.crediya.autenticacion.model.usuario.exceptions.CredencialesInvalidasException;
 import com.crediya.autenticacion.model.usuario.exceptions.DatosUsuarioInvalidosException;
 import com.crediya.autenticacion.model.usuario.exceptions.UsuarioNoEncontradoException;
 import com.crediya.autenticacion.model.usuario.exceptions.UsuarioDuplicadoException;
@@ -14,13 +16,17 @@ public final class ErrorCatalog {
 
     public static final String CODIGO_VALIDACION = "VALIDACION_FALLIDA";
     public static final String CODIGO_PETICION_INVALIDA = "PETICION_INVALIDA";
+    public static final String CODIGO_NO_AUTENTICADO = "NO_AUTENTICADO";
+    public static final String MENSAJE_NO_AUTENTICADO = "Debes iniciar sesion con un token valido";
     public static final String CODIGO_ERROR_INTERNO = "ERROR_INTERNO";
     public static final String MENSAJE_ERROR_INTERNO = "Ocurrio un error interno. Intenta de nuevo mas tarde.";
 
     private static final Map<String, HttpStatus> ESTADOS_DOMINIO = Map.of(
             DatosUsuarioInvalidosException.CODE, HttpStatus.BAD_REQUEST,
             UsuarioDuplicadoException.CODE, HttpStatus.CONFLICT,
-            UsuarioNoEncontradoException.CODE, HttpStatus.NOT_FOUND
+            UsuarioNoEncontradoException.CODE, HttpStatus.NOT_FOUND,
+            CredencialesInvalidasException.CODE, HttpStatus.UNAUTHORIZED,
+            AccesoDenegadoException.CODE, HttpStatus.FORBIDDEN
     );
 
     private ErrorCatalog() {

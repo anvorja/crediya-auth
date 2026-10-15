@@ -18,7 +18,8 @@ final class UsuarioPersistenceMapper {
                 usuario.telefono(),
                 usuario.email(),
                 usuario.salarioBase(),
-                RolCatalogo.idDe(usuario.rol())
+                RolCatalogo.idDe(usuario.rol()),
+                usuario.passwordHash()
         );
     }
 
@@ -33,7 +34,8 @@ final class UsuarioPersistenceMapper {
                 entity.telefono(),
                 entity.email(),
                 entity.salarioBase(),
-                RolCatalogo.rolDe(entity.idRol())
+                RolCatalogo.rolDe(entity.idRol()),
+                entity.passwordHash()
         );
     }
 }

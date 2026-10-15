@@ -10,7 +10,7 @@ con [Scaffold de Bancolombia](https://bancolombia.github.io/scaffold-clean-archi
 |----|-------------|------|--------|
 | HU1 | Registrar usuarios (`POST /api/v1/usuarios`) | `feature/HU-01-registro-usuarios` | Hecha |
 | HU2 | Consulta de usuario por documento (`GET /api/v1/usuarios/{documento}`), usada por SOLICITUDES | `feature/HU-02-consulta-usuario` | Hecha |
-| HU3 | Login y JWT (`POST /api/v1/login`) | `feature/HU-03-autenticacion` | Pendiente |
+| HU3 | Login y JWT (`POST /api/v1/login`) y autorizacion por rol | `feature/HU-03-autenticacion` | Hecha |
 
 ## Estructura
 
@@ -40,26 +40,59 @@ docker run -d --name crediya-auth-db -e POSTGRES_DB=crediya_auth -e POSTGRES_USE
   -e POSTGRES_PASSWORD=cambia-esta-clave -p 5432:5432 postgres:16-alpine
 
 # 2. Variables de entorno (ver .env.example) y arranque
-export DB_USERNAME=crediya DB_PASSWORD=cambia-esta-clave
+export DB_USERNAME=crediya DB_PASSWORD=cambia-esta-clave BOOTSTRAP_ADMIN_PASSWORD=cambia-esta-clave-admin
 ./gradlew bootRun
 ```
 
 Swagger UI: http://localhost:8080/swagger-ui.html - Health: http://localhost:8080/actuator/health
 
+## Autenticacion y roles (HU3)
+
+`POST /api/v1/login` con `correo_electronico` y `password` devuelve un JWT firmado con **RS256**
+(`access_token`, `token_type`, `expires_in`). La clave publica se publica en `GET /.well-known/jwks.json` para que otros
+servicios (SOLICITUDES) verifiquen los tokens **sin compartir ningun secreto**.
+
+| Endpoint | Quien puede |
+|----------|-------------|
+| `POST /api/v1/login`, `GET /.well-known/jwks.json`, `/actuator/health`, `/v3/api-docs`, Swagger UI | Publico |
+| `POST /api/v1/usuarios` | `ADMIN` y `ASESOR`; solo un `ADMIN` puede crear `ADMIN` o `ASESOR` |
+| `GET /api/v1/usuarios/{documento}` | Cualquier autenticado; un `CLIENTE` solo puede consultar su propio documento |
+
+Decisiones de seguridad:
+- Las claves se guardan solo como hash **bcrypt** (calculado fuera de los hilos reactivos). La clave tiene 8..72 caracteres
+  (bcrypt solo usa 72 bytes: se rechaza en vez de truncar en silencio).
+- Usuario inexistente y clave incorrecta devuelven la **misma respuesta 401** y un costo de calculo similar (no se puede
+  averiguar que cuentas existen). Los intentos son ilimitados, como pide la HU3 (no hay bloqueo de cuenta).
+- Los errores 401/403 usan el mismo formato JSON que el resto de la API y no revelan el motivo del rechazo.
+- Ningun `toString` imprime claves, hashes ni tokens.
+
+### Claves y primer administrador
+
+```bash
+export JWT_PRIVATE_KEY=$(./scripts/generate-jwt-key.sh)   # en produccion: gestor de secretos
+export BOOTSTRAP_ADMIN_PASSWORD=cambia-esta-clave-admin   # crea el primer ADMIN si no existe ninguno
+```
+
+Sin `JWT_PRIVATE_KEY` se genera una clave efimera (los tokens no sobreviven a un reinicio ni sirve con varias replicas).
+Los usuarios creados en HU1 antes de HU3 no tienen clave y no pueden iniciar sesion hasta que se vuelvan a registrar.
+
 ## Registrar un usuario (HU1)
 
 ```bash
-curl -i -X POST http://localhost:8080/api/v1/usuarios -H 'Content-Type: application/json' -d '{
+# TOKEN=<access_token de un ADMIN o ASESOR>
+curl -i -X POST http://localhost:8080/api/v1/usuarios -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
   "nombres": "Maria", "apellidos": "Gomez", "documento_identidad": "1020304050",
   "fecha_nacimiento": "1995-03-20", "direccion": "Calle 10", "telefono": "+573001234567",
-  "correo_electronico": "maria@example.com", "salario_base": 4500000
+  "correo_electronico": "maria@example.com", "salario_base": 4500000, "password": "Clave-Segura-123"
 }'
 ```
 
 | Codigo | Cuando |
 |--------|--------|
 | 201 | Usuario registrado |
-| 400 | Campos vacios, correo invalido o salario fuera de 0..15000000 |
+| 400 | Campos vacios, correo invalido, clave de largo invalido o salario fuera de 0..15000000 |
+| 401 | Falta el token o no es valido |
+| 403 | El rol no permite la accion (p. ej. un `CLIENTE`, o un `ASESOR` creando personal interno) |
 | 409 | Correo o documento ya registrados |
 | 500 | Error inesperado (mensaje generico, sin detalles internos) |
 

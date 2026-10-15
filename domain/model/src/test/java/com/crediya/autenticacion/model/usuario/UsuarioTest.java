@@ -176,4 +176,60 @@ class UsuarioTest {
         assertThat(conId).usingRecursiveComparison().ignoringFields("id").isEqualTo(original);
         assertThat(original.id()).isNull();
     }
+
+    @ParameterizedTest(name = "password = [{0}]")
+    @NullAndEmptySource
+    @ValueSource(strings = {"   ", "corta", "1234567"})
+    @DisplayName("cuando la clave es nula, vacia o tiene menos de 8 caracteres, debe rechazar")
+    void cuandoPasswordInvalida_debeRechazar(String password) {
+        assertInvalido(() -> Usuario.registrar(ComandoUsuarioBuilder.valido().password(password).build(), RELOJ), "password");
+    }
+
+    @Test
+    @DisplayName("cuando la clave supera los 72 caracteres de bcrypt, debe rechazar en vez de truncarla en silencio")
+    void cuandoPasswordDemasiadoLarga_debeRechazar() {
+        var larga = "a".repeat(Usuario.PASSWORD_LONGITUD_MAXIMA + 1);
+
+        assertInvalido(() -> Usuario.registrar(ComandoUsuarioBuilder.valido().password(larga).build(), RELOJ), "password");
+    }
+
+    @ParameterizedTest(name = "largo = {0}")
+    @ValueSource(ints = {Usuario.PASSWORD_LONGITUD_MINIMA, Usuario.PASSWORD_LONGITUD_MAXIMA})
+    @DisplayName("cuando la clave tiene el largo minimo o maximo, debe aceptar")
+    void cuandoPasswordEnLimites_debeAceptar(int largo) {
+        var usuario = Usuario.registrar(ComandoUsuarioBuilder.valido().password("x".repeat(largo)).build(), RELOJ);
+
+        assertThat(usuario.passwordHash()).isNull();
+    }
+
+    @Test
+    @DisplayName("al registrar no debe guardar la clave en claro: el hash se asigna despues con conPasswordHash")
+    void alRegistrar_noDebeGuardarLaClave() {
+        var usuario = Usuario.registrar(ComandoUsuarioBuilder.valido().build(), RELOJ);
+
+        var conHash = usuario.conPasswordHash("$2a$10$hash");
+
+        assertThat(usuario.passwordHash()).isNull();
+        assertThat(conHash.passwordHash()).isEqualTo("$2a$10$hash");
+        assertThat(conHash).usingRecursiveComparison().ignoringFields("passwordHash").isEqualTo(usuario);
+    }
+
+    @Test
+    @DisplayName("toString no debe filtrar ni la clave ni el hash ni datos personales sensibles")
+    void toString_noDebeFiltrarCredenciales() {
+        var comando = ComandoUsuarioBuilder.valido().password("Clave-Super-Secreta").build();
+        var usuario = Usuario.registrar(comando, RELOJ).conPasswordHash("$2a$10$hash-secreto");
+
+        assertThat(comando.toString()).doesNotContain("Clave-Super-Secreta").contains("password=****");
+        assertThat(usuario.toString()).doesNotContain("hash-secreto").doesNotContain("4500000");
+    }
+
+    @Test
+    @DisplayName("el constructor de lectura debe dejar el hash en nulo")
+    void constructorDeLectura_debeDejarHashNulo() {
+        var usuario = new Usuario(UUID.randomUUID(), "Maria", "Gomez", "1020304050", null, null, null,
+                "maria@example.com", BigDecimal.TEN, Rol.CLIENTE);
+
+        assertThat(usuario.passwordHash()).isNull();
+    }
 }

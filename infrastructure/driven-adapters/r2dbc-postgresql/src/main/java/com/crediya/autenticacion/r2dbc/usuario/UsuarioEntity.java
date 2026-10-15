@@ -19,6 +19,7 @@ public record UsuarioEntity(
         @Column("telefono") String telefono,
         @Column("email") String email,
         @Column("salario_base") BigDecimal salarioBase,
-        @Column("id_rol") Short idRol
+        @Column("id_rol") Short idRol,
+        @Column("password_hash") String passwordHash
 ) {
 }

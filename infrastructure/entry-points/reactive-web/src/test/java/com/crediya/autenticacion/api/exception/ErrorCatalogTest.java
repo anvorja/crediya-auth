@@ -1,5 +1,7 @@
 package com.crediya.autenticacion.api.exception;
 
+import com.crediya.autenticacion.model.common.exceptions.AccesoDenegadoException;
+import com.crediya.autenticacion.model.usuario.exceptions.CredencialesInvalidasException;
 import com.crediya.autenticacion.model.usuario.exceptions.DatosUsuarioInvalidosException;
 import com.crediya.autenticacion.model.usuario.exceptions.UsuarioDuplicadoException;
 import com.crediya.autenticacion.model.usuario.exceptions.UsuarioNoEncontradoException;
@@ -18,6 +20,8 @@ class ErrorCatalogTest {
         assertThat(ErrorCatalog.estadoDe(DatosUsuarioInvalidosException.CODE)).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(ErrorCatalog.estadoDe(UsuarioDuplicadoException.CODE)).isEqualTo(HttpStatus.CONFLICT);
         assertThat(ErrorCatalog.estadoDe(UsuarioNoEncontradoException.CODE)).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(ErrorCatalog.estadoDe(CredencialesInvalidasException.CODE)).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(ErrorCatalog.estadoDe(AccesoDenegadoException.CODE)).isEqualTo(HttpStatus.FORBIDDEN);
     }
 
     @Test

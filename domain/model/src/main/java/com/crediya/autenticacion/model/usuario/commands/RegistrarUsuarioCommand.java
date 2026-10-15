@@ -15,6 +15,16 @@ public record RegistrarUsuarioCommand(
         String telefono,
         String email,
         BigDecimal salarioBase,
-        String rol
+        String rol,
+        String password
 ) {
+
+    /**
+     * Nunca imprime la clave: este comando puede terminar en un log por accidente.
+     */
+    @Override
+    public String toString() {
+        return "RegistrarUsuarioCommand[email=" + email + ", documentoIdentidad=" + documentoIdentidad
+                + ", rol=" + rol + ", password=****]";
+    }
 }
