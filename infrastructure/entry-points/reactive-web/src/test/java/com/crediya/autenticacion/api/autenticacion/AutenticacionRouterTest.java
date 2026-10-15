@@ -10,6 +10,7 @@ import com.crediya.autenticacion.model.usuario.commands.LoginCommand;
 import com.crediya.autenticacion.model.usuario.exceptions.CredencialesInvalidasException;
 import com.crediya.autenticacion.usecase.clavespublicas.ObtenerClavesPublicasUseCase;
 import com.crediya.autenticacion.usecase.consultarusuario.ConsultarUsuarioUseCase;
+import com.crediya.autenticacion.usecase.consultarusuarios.ConsultarUsuariosPorCorreoUseCase;
 import com.crediya.autenticacion.usecase.login.LoginUseCase;
 import com.crediya.autenticacion.usecase.registrarusuario.RegistrarUsuarioUseCase;
 import jakarta.validation.Validation;
@@ -50,13 +51,16 @@ class AutenticacionRouterTest {
     @Mock
     private ConsultarUsuarioUseCase consultarUseCase;
 
+    @Mock
+    private ConsultarUsuariosPorCorreoUseCase consultarPorCorreosUseCase;
+
     private WebTestClient client;
 
     @BeforeEach
     void setUp() {
         var validador = new RequestValidator(Validation.buildDefaultValidatorFactory().getValidator());
         client = ApiTestSupport.cliente(
-                new UsuarioHandler(registrarUseCase, consultarUseCase, new UsuarioRestMapperImpl(), validador),
+                new UsuarioHandler(registrarUseCase, consultarUseCase, consultarPorCorreosUseCase, new UsuarioRestMapperImpl(), validador),
                 new AutenticacionHandler(loginUseCase, clavesUseCase, new AutenticacionRestMapperImpl(), validador));
     }
 

@@ -10,6 +10,7 @@ con [Scaffold de Bancolombia](https://bancolombia.github.io/scaffold-clean-archi
 |----|-------------|------|--------|
 | HU1 | Registrar usuarios (`POST /api/v1/usuarios`) | `feature/HU-01-registro-usuarios` | Hecha |
 | HU2 | Consulta de usuario por documento (`GET /api/v1/usuarios/{documento}`), usada por SOLICITUDES | `feature/HU-02-consulta-usuario` | Hecha |
+| HU4 | Consulta de varios usuarios por correo (`GET /api/v1/usuarios?correos=`), usada por SOLICITUDES para el listado | `feature/HU-04-consulta-por-correos` | Hecha |
 | HU3 | Login y JWT (`POST /api/v1/login`) y autorizacion por rol | `feature/HU-03-autenticacion` | Hecha |
 
 ## Estructura
@@ -57,6 +58,7 @@ servicios (SOLICITUDES) verifiquen los tokens **sin compartir ningun secreto**.
 | `POST /api/v1/login`, `GET /.well-known/jwks.json`, `/actuator/health`, `/v3/api-docs`, Swagger UI | Publico |
 | `POST /api/v1/usuarios` | `ADMIN` y `ASESOR`; solo un `ADMIN` puede crear `ADMIN` o `ASESOR` |
 | `GET /api/v1/usuarios/{documento}` | Cualquier autenticado; un `CLIENTE` solo puede consultar su propio documento |
+| `GET /api/v1/usuarios?correos=a@x.co,b@y.co` | Solo `ADMIN` y `ASESOR` (expone datos de terceros); maximo 50 correos por consulta |
 
 Decisiones de seguridad:
 - Las claves se guardan solo como hash **bcrypt** (calculado fuera de los hilos reactivos). La clave tiene 8..72 caracteres
