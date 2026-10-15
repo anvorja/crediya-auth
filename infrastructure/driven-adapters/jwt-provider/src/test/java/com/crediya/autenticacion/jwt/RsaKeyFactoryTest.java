@@ -40,6 +40,19 @@ class RsaKeyFactoryTest {
         assertThat(desdeBase64.getKeyID()).isEqualTo(desdePem.getKeyID());
     }
 
+    @Test
+    @DisplayName("cuando la clave es el base64 de un PEM (salida de openssl codificada), tambien debe cargarla con el mismo kid")
+    void cuandoBase64DeUnPem_tambienDebeCargarla() throws Exception {
+        var par = JwtTestSupport.generarParDeClaves();
+        var base64DelPem = Base64.getEncoder().encodeToString(JwtTestSupport.pem(par).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+
+        var desdePem = RsaKeyFactory.desde(new JwtProperties(null, null, null, JwtTestSupport.pem(par)));
+        var desdeBase64DelPem = RsaKeyFactory.desde(new JwtProperties(null, null, null, base64DelPem));
+
+        assertThat(desdeBase64DelPem.getKeyID()).isEqualTo(desdePem.getKeyID());
+        assertThat(desdeBase64DelPem.isPrivate()).isTrue();
+    }
+
     @ParameterizedTest(name = "clave = [{0}]")
     @NullAndEmptySource
     @ValueSource(strings = {"   "})
@@ -60,6 +73,18 @@ class RsaKeyFactoryTest {
                 .hasMessageContaining("PKCS8")
                 .hasMessageNotContaining("super-secreta")
                 .hasNoCause();
+    }
+
+    @Test
+    @DisplayName("cuando la clave esta en PKCS#1 (formato tradicional de openssl), debe rechazar indicando como convertirla")
+    void cuandoClavePkcs1_debeRechazarIndicandoLaConversion() throws Exception {
+        // Estructura minima de una clave PKCS#1: SEQUENCE { INTEGER 0, INTEGER n ... } no es un PKCS#8 (le falta AlgorithmIdentifier)
+        var pkcs1 = Base64.getEncoder().encodeToString(new byte[] {0x30, 0x0b, 0x02, 0x01, 0x00, 0x02, 0x06, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06});
+
+        assertThatThrownBy(() -> RsaKeyFactory.desde(new JwtProperties(null, null, null, pkcs1)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PKCS8")
+                .hasMessageContaining("pkcs8 -topk8");
     }
 
     @Test
