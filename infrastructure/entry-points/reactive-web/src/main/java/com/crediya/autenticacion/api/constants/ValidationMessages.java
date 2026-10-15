@@ -12,6 +12,8 @@ public final class ValidationMessages {
     public static final String SALARIO_REQUERIDO = "El salario base es obligatorio";
     public static final String SALARIO_MINIMO = "El salario base no puede ser negativo";
     public static final String SALARIO_MAXIMO = "El salario base no puede superar 15000000";
+    public static final String CORREOS_REQUERIDOS = "Debes indicar al menos un correo en el parametro correos";
+    public static final String CAMPO_CORREOS = "correos";
     public static final String CUERPO_REQUERIDO = "El cuerpo de la peticion es obligatorio";
     public static final String CAMPO_CUERPO = "cuerpo";
 

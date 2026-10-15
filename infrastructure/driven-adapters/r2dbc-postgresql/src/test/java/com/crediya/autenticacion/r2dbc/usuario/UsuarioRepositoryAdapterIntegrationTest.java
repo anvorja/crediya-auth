@@ -208,6 +208,19 @@ class UsuarioRepositoryAdapterIntegrationTest {
     }
 
     @Test
+    @DisplayName("buscarPorEmails debe devolver solo los usuarios pedidos en una consulta y omitir los inexistentes")
+    void buscarPorEmails_debeDevolverSoloLosPedidos() {
+        adapter.guardar(usuario("uno@example.com", "21212", Rol.CLIENTE)).block();
+        adapter.guardar(usuario("dos@example.com", "22323", Rol.CLIENTE)).block();
+        adapter.guardar(usuario("tres@example.com", "23434", Rol.CLIENTE)).block();
+
+        StepVerifier.create(adapter.buscarPorEmails(java.util.List.of("uno@example.com", "tres@example.com", "nadie@example.com"))
+                        .map(Usuario::email).collectList())
+                .assertNext(correos -> assertThat(correos).containsExactlyInAnyOrder("uno@example.com", "tres@example.com"))
+                .verifyComplete();
+    }
+
+    @Test
     @DisplayName("existePorRol debe distinguir los roles presentes de los ausentes")
     void existePorRol_debeDistinguir() {
         adapter.guardar(usuario("admin@example.com", "18181", Rol.ADMIN)).block();

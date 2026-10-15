@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import org.springframework.http.MediaType;
 
 import static org.springdoc.core.fn.builders.apiresponse.Builder.responseBuilder;
+import static org.springdoc.core.fn.builders.arrayschema.Builder.arraySchemaBuilder;
 import static org.springdoc.core.fn.builders.content.Builder.contentBuilder;
 import static org.springdoc.core.fn.builders.parameter.Builder.parameterBuilder;
 import static org.springdoc.core.fn.builders.requestbody.Builder.requestBodyBuilder;
@@ -94,5 +95,31 @@ public final class UsuarioOpenApi {
                 .response(responseBuilder().responseCode(SERVER_ERROR).description("Error interno")
                         .content(contentBuilder().mediaType(JSON)
                                 .schema(schemaBuilder().implementation(ErrorResponse.class))));
+    }
+
+    public static Builder consultarPorCorreos(Builder builder) {
+        return builder
+                .operationId("consultarUsuariosPorCorreo")
+                .summary("Consultar varios usuarios por correo")
+                .description("HU4: lo usa SOLICITUDES para obtener nombre y salario de los solicitantes de un listado. "
+                        + "Solo ADMIN y ASESOR. Maximo 50 correos por consulta.")
+                .tag(TAG)
+                .security(securityRequirementBuilder().name(OpenApiConfig.ESQUEMA_BEARER))
+                .parameter(parameterBuilder()
+                        .name("correos")
+                        .in(ParameterIn.QUERY)
+                        .required(true)
+                        .description("Correos separados por coma")
+                        .example("maria@example.com,pedro@example.com")
+                        .schema(schemaBuilder().implementation(String.class)))
+                .response(responseBuilder().responseCode(OK).description("Usuarios encontrados (puede ser una lista vacia)")
+                        .content(contentBuilder().mediaType(JSON)
+                                .array(arraySchemaBuilder().schema(schemaBuilder().implementation(UsuarioResponse.class)))))
+                .response(responseBuilder().responseCode(BAD_REQUEST).description("Falta el parametro o hay demasiados correos")
+                        .content(contentBuilder().mediaType(JSON).schema(schemaBuilder().implementation(ErrorResponse.class))))
+                .response(responseBuilder().responseCode(UNAUTHORIZED).description("Falta el token o no es valido")
+                        .content(contentBuilder().mediaType(JSON).schema(schemaBuilder().implementation(ErrorResponse.class))))
+                .response(responseBuilder().responseCode(FORBIDDEN).description("Solo personal interno")
+                        .content(contentBuilder().mediaType(JSON).schema(schemaBuilder().implementation(ErrorResponse.class))));
     }
 }

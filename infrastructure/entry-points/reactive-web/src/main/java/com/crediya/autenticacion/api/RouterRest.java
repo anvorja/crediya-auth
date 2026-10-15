@@ -26,6 +26,8 @@ public class RouterRest {
                 .POST(ApiRoutes.LOGIN, accept(MediaType.APPLICATION_JSON),
                         autenticacionHandler::login, AutenticacionOpenApi::login)
                 .GET(ApiRoutes.JWKS, autenticacionHandler::clavesPublicas, AutenticacionOpenApi::clavesPublicas)
+                .GET(ApiRoutes.USUARIOS, accept(MediaType.APPLICATION_JSON),
+                        usuarioHandler::consultarPorCorreos, UsuarioOpenApi::consultarPorCorreos)
                 .GET(ApiRoutes.USUARIO_POR_DOCUMENTO, accept(MediaType.APPLICATION_JSON),
                         usuarioHandler::consultarPorDocumento, UsuarioOpenApi::consultarPorDocumento)
                 .build();

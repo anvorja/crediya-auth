@@ -340,4 +340,47 @@ class AutenticacionIntegrationTest {
         client.get().uri("/actuator/health").exchange().expectStatus().isOk()
                 .expectBody().jsonPath("$.status").isEqualTo("UP");
     }
+
+    // ---------- HU4: consulta por lotes de correos ----------
+
+    @Test
+    @DisplayName("HU4: un ASESOR consulta varios usuarios por correo y recibe nombre y salario; los inexistentes se omiten")
+    void asesor_consultaUsuariosPorCorreos() {
+        String tokenAsesor = crearYLoguear("3030303030", "asesor@crediya.test", "ASESOR");
+        registrar(tokenAdmin(), cuerpoUsuario("1020304050", "maria@crediya.test", "4500000", null, CLAVE)).expectStatus().isCreated();
+        registrar(tokenAdmin(), cuerpoUsuario("2020202020", "pedro@crediya.test", "2000000", null, CLAVE)).expectStatus().isCreated();
+
+        client.get().uri(uri -> uri.path(USUARIOS).queryParam("correos", "MARIA@crediya.test, pedro@crediya.test,nadie@crediya.test").build())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenAsesor).exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.length()").isEqualTo(2)
+                .jsonPath("$[?(@.salario_base==4500000)].correo_electronico").isEqualTo("maria@crediya.test")
+                .jsonPath("$[?(@.correo_electronico=='pedro@crediya.test')].nombres").isEqualTo("Maria")
+                .jsonPath("$[0].password_hash").doesNotExist();
+    }
+
+    @Test
+    @DisplayName("HU4: un CLIENTE no puede consultar por lotes (expone datos de terceros): 403")
+    void cliente_noPuedeConsultarPorLotes() {
+        String tokenCliente = crearYLoguear("1020304050", "maria@crediya.test", null);
+
+        client.get().uri(USUARIOS + "?correos=maria@crediya.test").header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenCliente)
+                .exchange().expectStatus().isForbidden();
+    }
+
+    @Test
+    @DisplayName("HU4: sin token da 401, sin el parametro da 400 y con mas de 50 correos da 400")
+    void consultaPorLotes_validaEntradaYAutenticacion() {
+        client.get().uri(USUARIOS + "?correos=a@b.co").exchange().expectStatus().isUnauthorized();
+
+        client.get().uri(USUARIOS).header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenAdmin()).exchange()
+                .expectStatus().isBadRequest();
+
+        String muchos = java.util.stream.IntStream.rangeClosed(0, 50).mapToObj(i -> "u" + i + "@crediya.test")
+                .collect(java.util.stream.Collectors.joining(","));
+        client.get().uri(USUARIOS + "?correos=" + muchos).header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenAdmin()).exchange()
+                .expectStatus().isBadRequest()
+                .expectBody().jsonPath("$.codigo").isEqualTo("DATOS_USUARIO_INVALIDOS");
+    }
 }

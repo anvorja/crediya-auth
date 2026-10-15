@@ -14,6 +14,7 @@ import com.crediya.autenticacion.model.usuario.exceptions.UsuarioDuplicadoExcept
 import com.crediya.autenticacion.model.usuario.exceptions.UsuarioNoEncontradoException;
 import com.crediya.autenticacion.usecase.clavespublicas.ObtenerClavesPublicasUseCase;
 import com.crediya.autenticacion.usecase.consultarusuario.ConsultarUsuarioUseCase;
+import com.crediya.autenticacion.usecase.consultarusuarios.ConsultarUsuariosPorCorreoUseCase;
 import com.crediya.autenticacion.usecase.login.LoginUseCase;
 import com.crediya.autenticacion.usecase.registrarusuario.RegistrarUsuarioUseCase;
 import jakarta.validation.Validation;
@@ -56,6 +57,9 @@ class UsuarioRouterTest {
     private ConsultarUsuarioUseCase consultarUseCase;
 
     @Mock
+    private ConsultarUsuariosPorCorreoUseCase consultarPorCorreosUseCase;
+
+    @Mock
     private LoginUseCase loginUseCase;
 
     @Mock
@@ -65,7 +69,7 @@ class UsuarioRouterTest {
 
     @BeforeEach
     void setUp() {
-        var handler = new UsuarioHandler(useCase, consultarUseCase, new UsuarioRestMapperImpl(),
+        var handler = new UsuarioHandler(useCase, consultarUseCase, consultarPorCorreosUseCase, new UsuarioRestMapperImpl(),
                 new RequestValidator(Validation.buildDefaultValidatorFactory().getValidator()));
         var autenticacion = new AutenticacionHandler(loginUseCase, clavesUseCase, new AutenticacionRestMapperImpl(),
                 new RequestValidator(Validation.buildDefaultValidatorFactory().getValidator()));
@@ -258,5 +262,48 @@ class UsuarioRouterTest {
                 "m@g.co", BigDecimal.TEN, null, "Clave-Secreta-1");
 
         assertThat(dto.toString()).doesNotContain("Clave-Secreta-1").contains("password=****");
+    }
+
+    @Test
+    @DisplayName("GET por correos: debe aceptar correos separados por coma y repetidos, y devolver la lista sin datos sensibles")
+    void consultarPorCorreos_debeDevolverLista() {
+        when(consultarPorCorreosUseCase.ejecutar(any())).thenReturn(reactor.core.publisher.Flux.just(
+                new Usuario(UUID.randomUUID(), "Maria", "Gomez", "1020304050", null, null, null, "maria@example.com",
+                        new BigDecimal("4500000"), Rol.CLIENTE, "$2a$10$hash-secreto")));
+
+        client.get().uri(uri -> uri.path(RUTA).queryParam("correos", "maria@example.com,pedro@example.com")
+                        .queryParam("correos", "ana@example.com").build())
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .value(cuerpo -> assertThat(cuerpo).contains("maria@example.com").contains("\"salario_base\":4500000")
+                        .doesNotContain("hash-secreto").doesNotContain("password"));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<java.util.Collection<String>> capturado = ArgumentCaptor.forClass(java.util.Collection.class);
+        verify(consultarPorCorreosUseCase).ejecutar(capturado.capture());
+        assertThat(capturado.getValue()).containsExactly("maria@example.com", "pedro@example.com", "ana@example.com");
+    }
+
+    @Test
+    @DisplayName("GET por correos: cuando falta el parametro, debe responder 400 con el detalle")
+    void consultarPorCorreos_sinParametro_debeResponder400() {
+        client.get().uri(RUTA).exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.codigo").isEqualTo("VALIDACION_FALLIDA")
+                .jsonPath("$.detalles.correos").isNotEmpty();
+
+        verify(consultarPorCorreosUseCase, never()).ejecutar(any());
+    }
+
+    @Test
+    @DisplayName("GET por correos: cuando el dominio deniega el acceso, debe responder 403")
+    void consultarPorCorreos_denegado_debeResponder403() {
+        when(consultarPorCorreosUseCase.ejecutar(any())).thenReturn(reactor.core.publisher.Flux.error(new AccesoDenegadoException()));
+
+        client.get().uri(RUTA + "?correos=a@b.co").exchange()
+                .expectStatus().isForbidden()
+                .expectBody().jsonPath("$.codigo").isEqualTo("ACCESO_DENEGADO");
     }
 }
