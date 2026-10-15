@@ -6,6 +6,7 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import lombok.extern.slf4j.Slf4j;
 
+import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.interfaces.RSAPublicKey;
@@ -44,10 +45,33 @@ final class RsaKeyFactory {
         }
     }
 
+    /**
+     * Acepta la clave PKCS8 como PEM, como base64 de DER o como base64 de un PEM (lo que resulta de codificar en base64
+     * la salida de openssl sin -outform DER).
+     */
+    private static byte[] aDer(String configurada) {
+        byte[] decodificado = decodificarBase64(sinCabeceras(configurada));
+        if (esPem(decodificado)) {
+            return decodificarBase64(sinCabeceras(new String(decodificado, StandardCharsets.US_ASCII)));
+        }
+        return decodificado;
+    }
+
+    private static String sinCabeceras(String texto) {
+        return texto.replaceAll("-----(BEGIN|END)[A-Z ]*-----", "").replaceAll("\\s", "");
+    }
+
+    private static boolean esPem(byte[] bytes) {
+        return new String(bytes, 0, Math.min(bytes.length, 11), StandardCharsets.US_ASCII).startsWith("-----BEGIN");
+    }
+
+    private static byte[] decodificarBase64(String base64) {
+        return Base64.getDecoder().decode(base64);
+    }
+
     private static RSAKey cargar(String configurada) {
         try {
-            String base64 = configurada.replaceAll("-----(BEGIN|END)[A-Z ]*-----", "").replaceAll("\\s", "");
-            byte[] der = Base64.getDecoder().decode(base64);
+            byte[] der = aDer(configurada);
             KeyFactory fabrica = KeyFactory.getInstance("RSA");
             var privada = (RSAPrivateCrtKey) fabrica.generatePrivate(new PKCS8EncodedKeySpec(der));
             var publica = (RSAPublicKey) fabrica.generatePublic(
@@ -59,7 +83,8 @@ final class RsaKeyFactory {
                     .build();
         } catch (Exception e) {
             // No se incluye la causa para no filtrar fragmentos de la clave en los logs
-            throw new IllegalStateException("security.jwt.private-key no es una clave RSA PKCS8 valida (PEM o base64)");
+            throw new IllegalStateException("security.jwt.private-key no es una clave RSA PKCS8 valida (PEM o base64). "
+                    + "Si la generaste con openssl, conviertela con: openssl pkcs8 -topk8 -nocrypt");
         }
     }
 }

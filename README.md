@@ -10,6 +10,7 @@ con [Scaffold de Bancolombia](https://bancolombia.github.io/scaffold-clean-archi
 |----|-------------|------|--------|
 | HU1 | Registrar usuarios (`POST /api/v1/usuarios`) | `feature/HU-01-registro-usuarios` | Hecha |
 | HU2 | Consulta de usuario por documento (`GET /api/v1/usuarios/{documento}`), usada por SOLICITUDES | `feature/HU-02-consulta-usuario` | Hecha |
+| HU5 | Contenerizacion: Dockerfile y docker-compose | `feature/HU-05-contenerizacion` | Hecha |
 | HU4 | Consulta de varios usuarios por correo (`GET /api/v1/usuarios?correos=`), usada por SOLICITUDES para el listado | `feature/HU-04-consulta-por-correos` | Hecha |
 | HU3 | Login y JWT (`POST /api/v1/login`) y autorizacion por rol | `feature/HU-03-autenticacion` | Hecha |
 
@@ -36,7 +37,7 @@ los traduce a HTTP; la documentacion OpenAPI esta en una clase utilitaria (`Usua
 ## Ejecutar localmente
 
 ```bash
-# 1. PostgreSQL
+# 1. PostgreSQL (o usa docker compose, ver abajo)
 docker run -d --name crediya-auth-db -e POSTGRES_DB=crediya_auth -e POSTGRES_USER=crediya \
   -e POSTGRES_PASSWORD=cambia-esta-clave -p 5432:5432 postgres:16-alpine
 
@@ -97,6 +98,21 @@ curl -i -X POST http://localhost:8080/api/v1/usuarios -H "Authorization: Bearer 
 | 403 | El rol no permite la accion (p. ej. un `CLIENTE`, o un `ASESOR` creando personal interno) |
 | 409 | Correo o documento ya registrados |
 | 500 | Error inesperado (mensaje generico, sin detalles internos) |
+
+## Docker (HU5)
+
+```bash
+./scripts/init-env.sh                       # una vez: crea .env con credenciales y clave JWT aleatorias
+docker compose --env-file .env -f deployment/docker-compose.yml up --build
+```
+
+Levanta autenticacion (http://localhost:8081) y su PostgreSQL. La base vive en el volumen `db-data`: sobrevive a
+`docker compose down` (solo `down -v` la borra). El administrador inicial es `BOOTSTRAP_ADMIN_EMAIL` /
+`BOOTSTRAP_ADMIN_PASSWORD` de `.env`.
+
+La imagen (`deployment/Dockerfile`) es multi-stage: se compila con el JDK y solo el JRE y el jar llegan a la imagen final, que
+corre como usuario sin privilegios (uid 10001) con `java` como PID 1 (recibe SIGTERM y apaga de forma ordenada). El contenedor
+va con sistema de archivos de solo lectura, sin capacidades de Linux y con limite de memoria. Las versiones de imagen estan fijadas.
 
 ## Pruebas y calidad
 
