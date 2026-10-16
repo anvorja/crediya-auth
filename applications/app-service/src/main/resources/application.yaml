@@ -11,7 +11,7 @@ spring:
     timeout-per-shutdown-phase: 20s
   flyway:
     enabled: true
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:crediya_auth}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:crediya_auth}?sslmode=${DB_SSL_MODE:disable}
     user: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     locations: classpath:db/migration
@@ -27,6 +27,7 @@ adapters:
     schema: ${DB_SCHEMA:public}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    ssl-mode: ${DB_SSL_MODE:disable}
 
 # JWT (RS256). Sin JWT_PRIVATE_KEY se genera una clave efimera (solo desarrollo: los tokens no sobreviven a un reinicio)
 security:

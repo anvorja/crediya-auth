@@ -46,6 +46,8 @@ export DB_USERNAME=crediya DB_PASSWORD=cambia-esta-clave BOOTSTRAP_ADMIN_PASSWOR
 ./gradlew bootRun
 ```
 
+> Para una base RDS, que exige conexion cifrada, define `DB_SSL_MODE=require`. Por defecto es `disable`, adecuado para el PostgreSQL local del compose. Acepta `disable`, `require`, `verify-ca` y `verify-full`.
+
 Swagger UI: http://localhost:8080/swagger-ui.html - Health: http://localhost:8080/actuator/health
 
 ## Autenticacion y roles (HU3)
