@@ -37,18 +37,13 @@ public final class UsuarioOpenApi {
     }
 
     public static Builder registrarUsuario(Builder builder) {
-        return builder
+        return protegida(builder, "El rol no permite esta accion")
                 .operationId("registrarUsuario")
                 .summary("Registrar un usuario")
                 .description("HU1 + HU3: registra un nuevo usuario validando formato de datos, salario entre 0 y 15000000 "
                         + "y unicidad de correo electronico y documento. Requiere token de ADMIN o ASESOR; "
                         + "solo un ADMIN puede crear ADMIN o ASESOR.")
                 .tag(TAG)
-                .security(securityRequirementBuilder().name(OpenApiConfig.ESQUEMA_BEARER))
-                .response(responseBuilder().responseCode(UNAUTHORIZED).description("Falta el token o no es valido")
-                        .content(contentBuilder().mediaType(JSON).schema(schemaBuilder().implementation(ErrorResponse.class))))
-                .response(responseBuilder().responseCode(FORBIDDEN).description("El rol no permite esta accion")
-                        .content(contentBuilder().mediaType(JSON).schema(schemaBuilder().implementation(ErrorResponse.class))))
                 .requestBody(requestBodyBuilder()
                         .required(true)
                         .content(contentBuilder().mediaType(JSON)
@@ -56,29 +51,18 @@ public final class UsuarioOpenApi {
                 .response(responseBuilder().responseCode(CREATED).description("Usuario registrado")
                         .content(contentBuilder().mediaType(JSON)
                                 .schema(schemaBuilder().implementation(UsuarioResponse.class))))
-                .response(responseBuilder().responseCode(BAD_REQUEST).description("Datos invalidos")
-                        .content(contentBuilder().mediaType(JSON)
-                                .schema(schemaBuilder().implementation(ErrorResponse.class))))
-                .response(responseBuilder().responseCode(CONFLICT).description("Correo o documento ya registrado")
-                        .content(contentBuilder().mediaType(JSON)
-                                .schema(schemaBuilder().implementation(ErrorResponse.class))))
-                .response(responseBuilder().responseCode(SERVER_ERROR).description("Error interno")
-                        .content(contentBuilder().mediaType(JSON)
-                                .schema(schemaBuilder().implementation(ErrorResponse.class))));
+                .response(error(BAD_REQUEST, "Datos invalidos"))
+                .response(error(CONFLICT, "Correo o documento ya registrado"))
+                .response(error(SERVER_ERROR, "Error interno"));
     }
 
     public static Builder consultarPorDocumento(Builder builder) {
-        return builder
+        return protegida(builder, "Un cliente no puede consultar a otra persona")
                 .operationId("consultarUsuarioPorDocumento")
                 .summary("Consultar un usuario por documento de identidad")
                 .description("HU2 + HU3: lo usa SOLICITUDES para validar al cliente. Un CLIENTE solo puede consultar "
                         + "sus propios datos; ADMIN y ASESOR pueden consultar cualquiera.")
                 .tag(TAG)
-                .security(securityRequirementBuilder().name(OpenApiConfig.ESQUEMA_BEARER))
-                .response(responseBuilder().responseCode(UNAUTHORIZED).description("Falta el token o no es valido")
-                        .content(contentBuilder().mediaType(JSON).schema(schemaBuilder().implementation(ErrorResponse.class))))
-                .response(responseBuilder().responseCode(FORBIDDEN).description("Un cliente no puede consultar a otra persona")
-                        .content(contentBuilder().mediaType(JSON).schema(schemaBuilder().implementation(ErrorResponse.class))))
                 .parameter(parameterBuilder()
                         .name("documento")
                         .in(ParameterIn.PATH)
@@ -89,22 +73,17 @@ public final class UsuarioOpenApi {
                 .response(responseBuilder().responseCode(OK).description("Usuario encontrado")
                         .content(contentBuilder().mediaType(JSON)
                                 .schema(schemaBuilder().implementation(UsuarioResponse.class))))
-                .response(responseBuilder().responseCode(NOT_FOUND).description("Usuario inexistente")
-                        .content(contentBuilder().mediaType(JSON)
-                                .schema(schemaBuilder().implementation(ErrorResponse.class))))
-                .response(responseBuilder().responseCode(SERVER_ERROR).description("Error interno")
-                        .content(contentBuilder().mediaType(JSON)
-                                .schema(schemaBuilder().implementation(ErrorResponse.class))));
+                .response(error(NOT_FOUND, "Usuario inexistente"))
+                .response(error(SERVER_ERROR, "Error interno"));
     }
 
     public static Builder consultarPorCorreos(Builder builder) {
-        return builder
+        return protegida(builder, "Solo personal interno")
                 .operationId("consultarUsuariosPorCorreo")
                 .summary("Consultar varios usuarios por correo")
                 .description("HU4: lo usa SOLICITUDES para obtener nombre y salario de los solicitantes de un listado. "
                         + "Solo ADMIN y ASESOR. Maximo 50 correos por consulta.")
                 .tag(TAG)
-                .security(securityRequirementBuilder().name(OpenApiConfig.ESQUEMA_BEARER))
                 .parameter(parameterBuilder()
                         .name("correos")
                         .in(ParameterIn.QUERY)
@@ -115,11 +94,24 @@ public final class UsuarioOpenApi {
                 .response(responseBuilder().responseCode(OK).description("Usuarios encontrados (puede ser una lista vacia)")
                         .content(contentBuilder().mediaType(JSON)
                                 .array(arraySchemaBuilder().schema(schemaBuilder().implementation(UsuarioResponse.class)))))
-                .response(responseBuilder().responseCode(BAD_REQUEST).description("Falta el parametro o hay demasiados correos")
-                        .content(contentBuilder().mediaType(JSON).schema(schemaBuilder().implementation(ErrorResponse.class))))
-                .response(responseBuilder().responseCode(UNAUTHORIZED).description("Falta el token o no es valido")
-                        .content(contentBuilder().mediaType(JSON).schema(schemaBuilder().implementation(ErrorResponse.class))))
-                .response(responseBuilder().responseCode(FORBIDDEN).description("Solo personal interno")
-                        .content(contentBuilder().mediaType(JSON).schema(schemaBuilder().implementation(ErrorResponse.class))));
+                .response(error(BAD_REQUEST, "Falta el parametro o hay demasiados correos"));
+    }
+
+    /**
+     * Esquema Bearer mas los 401 y 403 que puede devolver cualquier endpoint protegido.
+     */
+    private static Builder protegida(Builder builder, String descripcionForbidden) {
+        return builder
+                .security(securityRequirementBuilder().name(OpenApiConfig.ESQUEMA_BEARER))
+                .response(error(UNAUTHORIZED, "Falta el token o no es valido"))
+                .response(error(FORBIDDEN, descripcionForbidden));
+    }
+
+    /**
+     * Un unico lugar arma las respuestas de error, siempre con el cuerpo real {@link ErrorResponse}.
+     */
+    private static org.springdoc.core.fn.builders.apiresponse.Builder error(String codigo, String descripcion) {
+        return responseBuilder().responseCode(codigo).description(descripcion)
+                .content(contentBuilder().mediaType(JSON).schema(schemaBuilder().implementation(ErrorResponse.class)));
     }
 }
