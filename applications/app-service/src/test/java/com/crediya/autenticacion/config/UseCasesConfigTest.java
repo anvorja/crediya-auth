@@ -1,44 +1,79 @@
 package com.crediya.autenticacion.config;
 
+import com.crediya.autenticacion.model.common.gateways.TransaccionGateway;
+import com.crediya.autenticacion.model.seguridad.gateways.ClavesPublicasGateway;
+import com.crediya.autenticacion.model.seguridad.gateways.ContextoSeguridadGateway;
+import com.crediya.autenticacion.model.seguridad.gateways.PasswordEncoderGateway;
+import com.crediya.autenticacion.model.seguridad.gateways.TokenGateway;
+import com.crediya.autenticacion.model.usuario.gateways.UsuarioRepository;
+import com.crediya.autenticacion.usecase.clavespublicas.ObtenerClavesPublicasUseCase;
+import com.crediya.autenticacion.usecase.consultarusuario.ConsultarUsuarioUseCase;
+import com.crediya.autenticacion.usecase.login.LoginUseCase;
+import com.crediya.autenticacion.usecase.registrarusuario.RegistrarUsuarioUseCase;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class UseCasesConfigTest {
+import java.time.Clock;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@DisplayName("UseCasesConfig: registro automatico de casos de uso")
+class UseCasesConfigTest {
 
     @Test
-    void testUseCaseBeansExist() {
-        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(TestConfig.class)) {
-            String[] beanNames = context.getBeanDefinitionNames();
-
-            boolean useCaseBeanFound = false;
-            for (String beanName : beanNames) {
-                if (beanName.endsWith("UseCase")) {
-                    useCaseBeanFound = true;
-                    break;
-                }
-            }
-
-            assertTrue(useCaseBeanFound, "No beans ending with 'Use Case' were found");
+    @DisplayName("debe registrar como bean cada clase *UseCase con sus puertos inyectados")
+    void debeRegistrarCasosDeUso() {
+        try (var contexto = new AnnotationConfigApplicationContext(PuertosSimulados.class)) {
+            assertThat(contexto.getBeansOfType(RegistrarUsuarioUseCase.class)).hasSize(1);
+            assertThat(contexto.getBeansOfType(ConsultarUsuarioUseCase.class)).hasSize(1);
+            assertThat(contexto.getBeansOfType(LoginUseCase.class)).hasSize(1);
+            assertThat(contexto.getBeansOfType(ObtenerClavesPublicasUseCase.class)).hasSize(1);
         }
     }
 
     @Configuration
-    @Import(UseCasesConfig.class)
-    static class TestConfig {
+    @Import({UseCasesConfig.class, ClockConfig.class})
+    static class PuertosSimulados {
 
         @Bean
-        public MyUseCase myUseCase() {
-            return new MyUseCase();
+        UsuarioRepository usuarioRepository() {
+            return Mockito.mock(UsuarioRepository.class);
+        }
+
+        @Bean
+        TransaccionGateway transaccionGateway() {
+            return Mockito.mock(TransaccionGateway.class);
+        }
+
+        @Bean
+        PasswordEncoderGateway passwordEncoderGateway() {
+            return Mockito.mock(PasswordEncoderGateway.class);
+        }
+
+        @Bean
+        ContextoSeguridadGateway contextoSeguridadGateway() {
+            return Mockito.mock(ContextoSeguridadGateway.class);
+        }
+
+        @Bean
+        TokenGateway tokenGateway() {
+            return Mockito.mock(TokenGateway.class);
+        }
+
+        @Bean
+        ClavesPublicasGateway clavesPublicasGateway() {
+            return Mockito.mock(ClavesPublicasGateway.class);
         }
     }
 
-    static class MyUseCase {
-        public String execute() {
-            return "MyUseCase Test";
-        }
+    @Test
+    @DisplayName("el reloj de la aplicacion debe usar UTC")
+    void relojDebeSerUtc() {
+        assertThat(new ClockConfig().clock()).isEqualTo(Clock.systemUTC());
     }
 }

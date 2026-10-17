@@ -1,12 +1,24 @@
 apply plugin: 'org.springframework.boot'
 
 dependencies {
+	implementation project(':security-context')
+	implementation project(':jwt-provider')
+	implementation project(':password-encoder')
+	implementation project(':reactive-web')
+	implementation 'org.reactivecommons.utils:object-mapper:0.1.0'
+	implementation project(':r2dbc-postgresql')
     implementation project(':model')
     implementation project(':usecase')
     implementation 'org.springframework.boot:spring-boot-starter'
-    runtimeOnly('org.springframework.boot:spring-boot-devtools')
+    // Solo para desarrollo local: 'developmentOnly' lo excluye del jar que se empaqueta en la imagen
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
     testImplementation 'com.tngtech.archunit:archunit:1.4.1'
     testImplementation 'com.fasterxml.jackson.core:jackson-databind'
+    testImplementation 'org.springframework.security:spring-security-oauth2-jose'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webflux'
+    testImplementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
+    testImplementation 'org.testcontainers:postgresql'
+    testImplementation 'org.testcontainers:junit-jupiter'
 }
 
 tasks.register('explodedJar', Copy) {
@@ -23,4 +35,3 @@ bootJar {
     // Sets output jar name
     archiveFileName = "${project.getParent().getName()}.${archiveExtension.get()}"
 }
-

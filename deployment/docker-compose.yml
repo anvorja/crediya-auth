@@ -1,0 +1,62 @@
+# Autenticacion + su base de datos, para ejecutarlo solo. Uso (desde la raiz del repositorio):
+#   ./scripts/init-env.sh && docker compose --env-file .env -f deployment/docker-compose.yml up --build
+name: crediya-autenticacion
+
+services:
+  db:
+    image: postgres:16.15-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-crediya_auth}
+      POSTGRES_USER: ${DB_USERNAME:?Define DB_USERNAME (ver .env.example)}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD (ver .env.example)}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [crediya-net]
+    restart: unless-stopped
+
+  autenticacion:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    image: crediya/autenticacion:local
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-crediya_auth}
+      DB_USERNAME: ${DB_USERNAME:?Define DB_USERNAME (ver .env.example)}
+      DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD (ver .env.example)}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?Define JWT_PRIVATE_KEY (./scripts/generate-jwt-key.sh)}
+      JWT_TTL_MINUTES: ${JWT_TTL_MINUTES:-60}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@crediya.local}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Define BOOTSTRAP_ADMIN_PASSWORD (ver .env.example)}
+      BOOTSTRAP_ADMIN_DOCUMENTO: ${BOOTSTRAP_ADMIN_DOCUMENTO:-0000000001}
+    ports:
+      - "${AUTH_PORT:-8081}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [crediya-net]
+    restart: unless-stopped
+    stop_grace_period: 30s
+    # Endurecimiento: sistema de archivos de solo lectura, sin privilegios adicionales y sin capacidades de Linux
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+
+volumes:
+  db-data:
+
+networks:
+  crediya-net:

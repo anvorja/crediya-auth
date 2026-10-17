@@ -1,0 +1,86 @@
+package com.crediya.autenticacion.r2dbc.usuario;
+
+import com.crediya.autenticacion.model.usuario.Rol;
+import com.crediya.autenticacion.model.usuario.Usuario;
+import com.crediya.autenticacion.model.usuario.exceptions.UsuarioDuplicadoException;
+import com.crediya.autenticacion.model.usuario.gateways.UsuarioRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.relational.core.query.Criteria;
+import org.springframework.data.relational.core.query.Query;
+import org.springframework.stereotype.Repository;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.util.Collection;
+
+@Slf4j
+@Repository
+@RequiredArgsConstructor
+public class UsuarioRepositoryAdapter implements UsuarioRepository {
+
+    static final String CONSTRAINT_EMAIL = "uq_usuario_email";
+    static final String CONSTRAINT_DOCUMENTO = "uq_usuario_documento";
+
+    private final R2dbcEntityTemplate template;
+
+    @Override
+    public Mono<Usuario> guardar(Usuario usuario) {
+        // Si el usuario no trae id lo genera PostgreSQL (gen_random_uuid): evita SecureRandom en hilos reactivos
+        return Mono.fromSupplier(() -> UsuarioPersistenceMapper.toEntity(usuario))
+                .doOnNext(entity -> log.info("Guardando usuario rol={}", usuario.rol()))
+                .flatMap(template::insert)
+                .map(UsuarioPersistenceMapper::toDomain)
+                .doOnNext(guardado -> log.info("Usuario guardado id={}", guardado.id()))
+                .onErrorMap(DataIntegrityViolationException.class, this::traducirIntegridad);
+    }
+
+    @Override
+    public Mono<Boolean> existePorEmail(String email) {
+        return template.exists(Query.query(Criteria.where("email").is(email).ignoreCase(true)), UsuarioEntity.class);
+    }
+
+    @Override
+    public Mono<Boolean> existePorDocumentoIdentidad(String documentoIdentidad) {
+        return template.exists(Query.query(Criteria.where("documento_identidad").is(documentoIdentidad)),
+                UsuarioEntity.class);
+    }
+
+    @Override
+    public Mono<Usuario> buscarPorDocumentoIdentidad(String documentoIdentidad) {
+        return template.selectOne(Query.query(Criteria.where("documento_identidad").is(documentoIdentidad)),
+                        UsuarioEntity.class)
+                .map(UsuarioPersistenceMapper::toDomain);
+    }
+
+    @Override
+    public Mono<Usuario> buscarPorEmail(String email) {
+        return template.selectOne(Query.query(Criteria.where("email").is(email).ignoreCase(true)), UsuarioEntity.class)
+                .map(UsuarioPersistenceMapper::toDomain);
+    }
+
+    @Override
+    public Flux<Usuario> buscarPorEmails(Collection<String> emails) {
+        // Los correos se guardan siempre en minusculas (Usuario.registrar) y el servicio los recibe normalizados
+        return template.select(Query.query(Criteria.where("email").in(emails)), UsuarioEntity.class)
+                .map(UsuarioPersistenceMapper::toDomain);
+    }
+
+    @Override
+    public Mono<Boolean> existePorRol(Rol rol) {
+        return template.exists(Query.query(Criteria.where("id_rol").is(RolCatalogo.idDe(rol))), UsuarioEntity.class);
+    }
+
+    private Throwable traducirIntegridad(DataIntegrityViolationException error) {
+        String detalle = String.valueOf(error.getMessage());
+        if (detalle.contains(CONSTRAINT_EMAIL)) {
+            return new UsuarioDuplicadoException("correo electronico");
+        }
+        if (detalle.contains(CONSTRAINT_DOCUMENTO)) {
+            return new UsuarioDuplicadoException("documento de identidad");
+        }
+        return error;
+    }
+}
