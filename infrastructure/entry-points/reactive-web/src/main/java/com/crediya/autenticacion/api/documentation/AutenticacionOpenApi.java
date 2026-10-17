@@ -37,12 +37,8 @@ public final class AutenticacionOpenApi {
                 .response(responseBuilder().responseCode(OK).description("Sesion iniciada")
                         .content(contentBuilder().mediaType(JSON)
                                 .schema(schemaBuilder().implementation(TokenResponse.class))))
-                .response(responseBuilder().responseCode(BAD_REQUEST).description("Faltan correo o clave")
-                        .content(contentBuilder().mediaType(JSON)
-                                .schema(schemaBuilder().implementation(ErrorResponse.class))))
-                .response(responseBuilder().responseCode(UNAUTHORIZED).description("Correo o clave incorrectos")
-                        .content(contentBuilder().mediaType(JSON)
-                                .schema(schemaBuilder().implementation(ErrorResponse.class))));
+                .response(error(BAD_REQUEST, "Faltan correo o clave"))
+                .response(error(UNAUTHORIZED, "Correo o clave incorrectos"));
     }
 
     public static Builder clavesPublicas(Builder builder) {
@@ -52,5 +48,13 @@ public final class AutenticacionOpenApi {
                 .description("Conjunto JWK (RFC 7517) para que otros microservicios verifiquen la firma RS256 de los tokens.")
                 .tag(TAG)
                 .response(responseBuilder().responseCode(OK).description("Conjunto de claves publicas"));
+    }
+
+    /**
+     * Un unico lugar arma las respuestas de error, siempre con el cuerpo real {@link ErrorResponse}.
+     */
+    private static org.springdoc.core.fn.builders.apiresponse.Builder error(String codigo, String descripcion) {
+        return responseBuilder().responseCode(codigo).description(descripcion)
+                .content(contentBuilder().mediaType(JSON).schema(schemaBuilder().implementation(ErrorResponse.class)));
     }
 }
